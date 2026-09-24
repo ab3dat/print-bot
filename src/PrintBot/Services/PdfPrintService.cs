@@ -24,17 +24,12 @@ public class PdfPrintService : IPrintService
     private bool PrintPdf(PrintJob job, PrintSettings settings)
     {
         using var document = PdfDocument.Load(job.FullPath);
-        // The native Windows print dialog has no "fit to page" concept — it only covers
-        // printer/copies/duplex/paper size — so PDF page scaling is a separate, app-level
-        // setting (PrintSettings.Scaling, configurable in the main window UI). ShrinkToMargin
-        // scales each page down (if needed) so it fits entirely within the printer's printable
-        // area (matches Adobe Acrobat's default). CutMargin prints pages at full size anchored
-        // to the hard margin, so anything outside the printable area gets physically clipped —
-        // that was the cause of the earlier "cut on the sides" symptom when this was hardcoded.
-        var printMode = settings.Scaling == PageScaling.ActualSize
-            ? PdfPrintMode.CutMargin
-            : PdfPrintMode.ShrinkToMargin;
-        using var printDocument = document.CreatePrintDocument(printMode);
+        // Scale each page down (if needed) so it fits entirely within the printer's
+        // printable area (matches Adobe Acrobat's default "fit to page" behavior).
+        // Any driver-level options the user picked in the native print dialog (duplex,
+        // quality, paper size, and on printers that support it, scaling) are applied via
+        // settings.NativePrinterSettings below and are not overridden here.
+        using var printDocument = document.CreatePrintDocument(PdfPrintMode.ShrinkToMargin);
 
         if (settings.NativePrinterSettings != null)
         {
@@ -80,7 +75,8 @@ public class PdfPrintService : IPrintService
         // We intentionally do NOT attach an additional PrintPage handler here — doing so
         // previously caused every page to be drawn twice (once by PdfiumViewer's internal
         // handler, once by our custom scaling code), which looked like a doubled/overlaid
-        // printout. Custom scaling is instead selected up front via PdfPrintMode (see above).
+        // printout. Custom scaling (Fit to page / Shrink oversized / Actual size) is left
+        // to PdfiumViewer's/Windows' defaults for now.
         printDocument.Print();
         return true;
     }
