@@ -50,6 +50,8 @@
                             Click="MoveUpButton_Click" />
                     <Button Content="⬇ Nach unten" Width="90" Margin="0,0,8,0"
                             Click="MoveDownButton_Click" />
+                    <Button Content="🔁 Erneut drucken" Width="120" Margin="0,0,8,0"
+                            Click="PrintSelectedButton_Click" />
                     <Button Content="✕ Entfernen" Width="90" Margin="0,0,8,0"
                             Click="RemoveSelectedButton_Click" />
                     <Button Content="🗑 Queue leeren" Width="100"

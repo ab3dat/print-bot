@@ -36,6 +36,9 @@ public partial class MainWindow : Window
     private void RemoveSelectedButton_Click(object sender, RoutedEventArgs e) =>
         ViewModel.RemoveSelectedCommand.Execute(JobsGrid.SelectedItems.Cast<object?>().ToList());
 
+    private void PrintSelectedButton_Click(object sender, RoutedEventArgs e) =>
+        ViewModel.PrintSelectedCommand.Execute(JobsGrid.SelectedItems.Cast<object?>().ToList());
+
     private static ServiceProvider ConfigureServices()
     {
         // Configure Serilog

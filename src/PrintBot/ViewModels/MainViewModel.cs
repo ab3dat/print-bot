@@ -228,27 +228,71 @@ public partial class MainViewModel : ObservableObject
             return;
         }
 
-        var result = MessageBox.Show(
-            $"{queued.Count} Dateien mit \"{SelectedPrinter?.Name ?? "(Standard)"}\" drucken?\n\n" +
-            $"Einstellungen: Kopien={Settings.Copies}, " +
-            $"Duplex={Settings.Duplex}",
-            "Drucken bestätigen", MessageBoxButton.YesNo, MessageBoxImage.Question);
+        // Only bother the user with a confirmation when more than one document is
+        // about to be printed — a single document doesn't need a "are you sure?" gate.
+        if (queued.Count > 1)
+        {
+            var result = MessageBox.Show(
+                $"Es sind {queued.Count} Dokumente zum Drucken ausgewählt. Sind Sie sicher?",
+                "Drucken bestätigen", MessageBoxButton.YesNo, MessageBoxImage.Question);
 
-        if (result != MessageBoxResult.Yes) return;
+            if (result != MessageBoxResult.Yes) return;
+        }
 
         // Ensure printer name is set
         if (SelectedPrinter != null)
             Settings.PrinterName = SelectedPrinter.FullName;
 
+        await RunPrintJobsAsync(queued);
+    }
+
+    [RelayCommand]
+    private async Task PrintSelectedAsync(IList<object?>? selectedItems)
+    {
+        if (IsPrinting) return;
+
+        var jobs = selectedItems?.OfType<PrintJob>().ToList() ?? new List<PrintJob>();
+        if (jobs.Count == 0)
+        {
+            MessageBox.Show("Keine Datei ausgewählt.", "Hinweis",
+                MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        if (jobs.Count > 1)
+        {
+            var result = MessageBox.Show(
+                $"Es sind {jobs.Count} Dokumente zum Drucken ausgewählt. Sind Sie sicher?",
+                "Drucken bestätigen", MessageBoxButton.YesNo, MessageBoxImage.Question);
+
+            if (result != MessageBoxResult.Yes) return;
+        }
+
+        if (SelectedPrinter != null)
+            Settings.PrinterName = SelectedPrinter.FullName;
+
+        // Reset status so documents that were already printed/failed/skipped are
+        // actually reprinted instead of being silently skipped by the orchestrator.
+        foreach (var job in jobs)
+        {
+            job.Status = PrintJobStatus.Queued;
+            job.ErrorMessage = null;
+        }
+
+        await RunPrintJobsAsync(jobs);
+    }
+
+    private async Task RunPrintJobsAsync(IReadOnlyList<PrintJob> jobs)
+    {
         IsPrinting = true;
         ProgressValue = 0;
-        ProgressMax = queued.Count;
+        ProgressMax = jobs.Count;
         _cts = new CancellationTokenSource();
 
         try
         {
             var (printed, failed) = await _orchestrator.PrintQueueAsync(
-                PrintJobs, Settings, OnJobStatusChanged, _cts.Token);
+                jobs, Settings, OnJobStatusChanged, _cts.Token);
 
             StatusText = $"Fertig: {printed} gedruckt, {failed} fehlgeschlagen";
 
