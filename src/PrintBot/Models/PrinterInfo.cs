@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Printing;
 
@@ -17,7 +18,7 @@ public class PrinterInfo
     /// <summary>
     /// Supported paper sizes reported by this printer.
     /// </summary>
-    public IReadOnlyList<PageMediaSizeName> SupportedPaperSizes { get; init; } = [];
+    public IReadOnlyList<PageMediaSizeName> SupportedPaperSizes { get; init; } = Array.Empty<PageMediaSizeName>();
 
     public override string ToString() => IsDefault ? $"{Name} (Standard)" : Name;
 }
