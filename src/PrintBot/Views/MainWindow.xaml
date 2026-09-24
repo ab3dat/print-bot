@@ -41,16 +41,17 @@
                 </StackPanel>
 
                 <!-- Right: Queue actions -->
+                <!-- NOTE: DataGrid.SelectedItems is not a DependencyProperty, so it cannot be
+                     data-bound as a CommandParameter (it won't update WPF's binding engine when
+                     the selection changes). Instead we use Click handlers in code-behind that
+                     read JobsGrid.SelectedItems directly and invoke the ViewModel commands. -->
                 <StackPanel Grid.Column="2" Orientation="Horizontal">
                     <Button Content="⬆ Nach oben" Width="90" Margin="0,0,4,0"
-                            Command="{Binding MoveUpCommand}"
-                            CommandParameter="{Binding ElementName=JobsGrid, Path=SelectedItems}" />
+                            Click="MoveUpButton_Click" />
                     <Button Content="⬇ Nach unten" Width="90" Margin="0,0,8,0"
-                            Command="{Binding MoveDownCommand}"
-                            CommandParameter="{Binding ElementName=JobsGrid, Path=SelectedItems}" />
+                            Click="MoveDownButton_Click" />
                     <Button Content="✕ Entfernen" Width="90" Margin="0,0,8,0"
-                            Command="{Binding RemoveSelectedCommand}"
-                            CommandParameter="{Binding ElementName=JobsGrid, Path=SelectedItems}" />
+                            Click="RemoveSelectedButton_Click" />
                     <Button Content="🗑 Queue leeren" Width="100"
                             Command="{Binding ClearQueueCommand}" />
                 </StackPanel>

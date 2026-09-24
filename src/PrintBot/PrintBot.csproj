@@ -6,13 +6,23 @@
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <UseWPF>true</UseWPF>
     <Nullable>enable</Nullable>
-    <ApplicationIcon>Assets\printbot.ico</ApplicationIcon>
     <AssemblyName>PrintBot</AssemblyName>
     <RootNamespace>PrintBot</RootNamespace>
     <Version>0.1.0</Version>
     <Authors>Nozzy + Alex</Authors>
     <Description>Bulk print tool for Windows — PDF, Word, Excel with queue management</Description>
   </PropertyGroup>
+
+  <!-- A valid binary .ico can't be authored through this remote editing environment (only plain
+       text files can be created here), so an ApplicationIcon reference is intentionally omitted
+       for now. See Assets\README.md for how to generate one locally, then uncomment the
+       PropertyGroup below (make sure Assets\printbot.ico is a real, valid icon file first — a
+       garbled/placeholder .ico at that path will break `dotnet build`). -->
+  <!--
+  <PropertyGroup>
+    <ApplicationIcon>Assets\printbot.ico</ApplicationIcon>
+  </PropertyGroup>
+  -->
 
   <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.2.2" />
