@@ -1,7 +1,13 @@
-using PrintBot.Models;
-using Microsoft.Office.Interop.Word;
-using Microsoft.Office.Interop.Excel;
+using System;
+using System.Collections.Generic;
+using System.IO;
 using System.Runtime.InteropServices;
+using System.Threading;
+using System.Threading.Tasks;
+using System.Printing;
+using PrintBot.Models;
+using Word = Microsoft.Office.Interop.Word;
+using Excel = Microsoft.Office.Interop.Excel;
 
 namespace PrintBot.Services;
 
@@ -35,20 +41,20 @@ public class OfficePrintService : IPrintService
 
     private bool PrintWord(PrintJob job, PrintSettings settings)
     {
-        Application? wordApp = null;
-        Document? doc = null;
+        Word.Application? wordApp = null;
+        Word.Document? doc = null;
 
         try
         {
-            wordApp = new Application { Visible = false };
+            wordApp = new Word.Application { Visible = false };
             doc = wordApp.Documents.Open(job.FullPath, ReadOnly: true, Visible: false);
 
             // Apply print settings
             doc.PageSetup.Orientation = settings.Orientation switch
             {
-                PageOrientation.Portrait => WdOrientation.wdOrientPortrait,
-                PageOrientation.Landscape => WdOrientation.wdOrientLandscape,
-                _ => WdOrientation.wdOrientPortrait
+                PageOrientation.Portrait => Word.WdOrientation.wdOrientPortrait,
+                PageOrientation.Landscape => Word.WdOrientation.wdOrientLandscape,
+                _ => Word.WdOrientation.wdOrientPortrait
             };
 
             object background = false;
@@ -56,20 +62,9 @@ public class OfficePrintService : IPrintService
             object activePrinter = settings.PrinterName ?? string.Empty;
             object printToFile = false;
             object collate = true;
-            object range = WdPrintOutRange.wdPrintAllDocument;
-            object items = WdPrintOutItem.wdPrintDocumentContent;
-            object pageType = WdPrintOutPages.wdPrintAllPages;
-            object? duplex = settings.Duplex switch
-            {
-                Duplexing.TwoSidedLongEdge => WdTwoOnOneType.wdTwoOnOneNone,
-                _ => null
-            };
-
-            // Fit to page via "scale to paper size"
-            if (settings.Scaling == PageScaling.FitToPage)
-            {
-                doc.Application.ActivePrinter = settings.PrinterName;
-            }
+            object range = Word.WdPrintOutRange.wdPrintAllDocument;
+            object items = Word.WdPrintOutItem.wdPrintDocumentContent;
+            object pageType = Word.WdPrintOutPages.wdPrintAllPages;
 
             doc.PrintOut(
                 Background: ref background,
@@ -97,26 +92,26 @@ public class OfficePrintService : IPrintService
 
     private bool PrintExcel(PrintJob job, PrintSettings settings)
     {
-        Application? excelApp = null;
-        Workbook? workbook = null;
+        Excel.Application? excelApp = null;
+        Excel.Workbook? workbook = null;
 
         try
         {
-            excelApp = new Application { Visible = false, DisplayAlerts = false };
+            excelApp = new Excel.Application { Visible = false, DisplayAlerts = false };
             workbook = excelApp.Workbooks.Open(job.FullPath, ReadOnly: true);
 
-            var sheet = (Worksheet)workbook.ActiveSheet;
+            var sheet = (Excel.Worksheet)workbook.ActiveSheet;
 
             // Apply page setup
             sheet.PageSetup.Orientation = settings.Orientation switch
             {
-                PageOrientation.Portrait => XlPageOrientation.xlPortrait,
-                PageOrientation.Landscape => XlPageOrientation.xlLandscape,
-                _ => XlPageOrientation.xlPortrait
+                PageOrientation.Portrait => Excel.XlPageOrientation.xlPortrait,
+                PageOrientation.Landscape => Excel.XlPageOrientation.xlLandscape,
+                _ => Excel.XlPageOrientation.xlPortrait
             };
 
-            sheet.PageSetup.FitToPagesWide = settings.Scaling == PageScaling.FitToPage ? 1 : 0;
-            sheet.PageSetup.FitToPagesTall = settings.Scaling == PageScaling.FitToPage ? 1 : 0;
+            sheet.PageSetup.FitToPagesWide = 1;
+            sheet.PageSetup.FitToPagesTall = 1;
 
             if (settings.PaperSize != PageMediaSizeName.Unknown)
             {
@@ -145,12 +140,12 @@ public class OfficePrintService : IPrintService
         }
     }
 
-    private static XlPaperSize PaperSizeToExcelPaperSize(PageMediaSizeName name) => name switch
+    private static Excel.XlPaperSize PaperSizeToExcelPaperSize(PageMediaSizeName name) => name switch
     {
-        PageMediaSizeName.ISOA4 => XlPaperSize.xlPaperA4,
-        PageMediaSizeName.ISOA3 => XlPaperSize.xlPaperA3,
-        PageMediaSizeName.NorthAmericaLetter => XlPaperSize.xlPaperLetter,
-        PageMediaSizeName.NorthAmericaLegal => XlPaperSize.xlPaperLegal,
-        _ => XlPaperSize.xlPaperA4
+        PageMediaSizeName.ISOA4 => Excel.XlPaperSize.xlPaperA4,
+        PageMediaSizeName.ISOA3 => Excel.XlPaperSize.xlPaperA3,
+        PageMediaSizeName.NorthAmericaLetter => Excel.XlPaperSize.xlPaperLetter,
+        PageMediaSizeName.NorthAmericaLegal => Excel.XlPaperSize.xlPaperLegal,
+        _ => Excel.XlPaperSize.xlPaperA4
     };
 }

@@ -1,11 +1,23 @@
+using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Drawing.Printing;
+using System.IO;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
+using Application = System.Windows.Application;
+using MessageBox = System.Windows.MessageBox;
+using OpenFileDialog = Microsoft.Win32.OpenFileDialog;
+using Duplexing = System.Printing.Duplexing;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Win32;
 using PrintBot.Models;
 using PrintBot.Services;
+using WinForms = System.Windows.Forms;
 
 namespace PrintBot.ViewModels;
 
@@ -53,6 +65,42 @@ public partial class MainViewModel : ObservableObject
     private int _progressMax;
 
     // ── Commands ─────────────────────────────────────────────────
+
+    [RelayCommand]
+    private void OpenPrintSettings()
+    {
+        using var dialog = new WinForms.PrintDialog
+        {
+            AllowSomePages = false,
+            AllowSelection = false,
+            AllowPrintToFile = false,
+            UseEXDialog = true,
+            PrinterSettings = Settings.NativePrinterSettings ?? new PrinterSettings
+            {
+                PrinterName = SelectedPrinter?.FullName ?? new PrinterSettings().PrinterName,
+                Copies = (short)Settings.Copies
+            }
+        };
+
+        if (dialog.ShowDialog() != WinForms.DialogResult.OK) return;
+
+        Settings.NativePrinterSettings = dialog.PrinterSettings;
+        Settings.PrinterName = dialog.PrinterSettings.PrinterName;
+        Settings.Copies = dialog.PrinterSettings.Copies;
+        Settings.Duplex = dialog.PrinterSettings.Duplex switch
+        {
+            System.Drawing.Printing.Duplex.Vertical => Duplexing.TwoSidedLongEdge,
+            System.Drawing.Printing.Duplex.Horizontal => Duplexing.TwoSidedShortEdge,
+            _ => Duplexing.OneSided
+        };
+
+        // Keep the printer combobox in sync with whatever printer was chosen in the dialog.
+        var matched = Printers.FirstOrDefault(p =>
+            string.Equals(p.FullName, dialog.PrinterSettings.PrinterName, StringComparison.OrdinalIgnoreCase));
+        if (matched != null) SelectedPrinter = matched;
+
+        StatusText = "Druckereinstellungen aktualisiert";
+    }
 
     [RelayCommand]
     private void AddFiles()
@@ -182,8 +230,7 @@ public partial class MainViewModel : ObservableObject
 
         var result = MessageBox.Show(
             $"{queued.Count} Dateien mit \"{SelectedPrinter?.Name ?? "(Standard)"}\" drucken?\n\n" +
-            $"Einstellungen: Skalierung={Settings.Scaling}, " +
-            $"Kopien={Settings.Copies}, " +
+            $"Einstellungen: Kopien={Settings.Copies}, " +
             $"Duplex={Settings.Duplex}",
             "Drucken bestätigen", MessageBoxButton.YesNo, MessageBoxImage.Question);
 

@@ -1,5 +1,9 @@
+using System;
+using System.Collections.Generic;
 using System.Drawing.Printing;
 using System.Printing;
+using System.Threading;
+using System.Threading.Tasks;
 using PrintBot.Models;
 using PdfiumViewer;
 
@@ -20,97 +24,60 @@ public class PdfPrintService : IPrintService
     private bool PrintPdf(PrintJob job, PrintSettings settings)
     {
         using var document = PdfDocument.Load(job.FullPath);
-        using var printDocument = document.CreatePrintDocument();
+        // ShrinkToMargin scales each page down (if needed) so it fits entirely within the
+        // printer's printable area — this is the "fit to page" behavior. The default
+        // (CutMargin) instead prints pages at full size anchored to the hard margin, which
+        // means anything outside the printable area (often a few mm on each edge) gets
+        // physically clipped by the printer — this was the cause of the "cut on the sides"
+        // symptom, since PdfiumViewer's default does not match Adobe Acrobat's default.
+        using var printDocument = document.CreatePrintDocument(PdfPrintMode.ShrinkToMargin);
 
-        // Configure the print document
-        printDocument.PrinterSettings.PrinterName = settings.PrinterName ?? string.Empty;
-        printDocument.PrinterSettings.Copies = (short)settings.Copies;
-        printDocument.PrinterSettings.DefaultPageSettings.Color = settings.ColorMode == OutputColor.Color;
-
-        // Apply duplex setting
-        printDocument.PrinterSettings.Duplex = settings.Duplex switch
+        if (settings.NativePrinterSettings != null)
         {
-            Duplexing.OneSided => System.Drawing.Printing.Duplex.Simplex,
-            Duplexing.TwoSidedLongEdge => System.Drawing.Printing.Duplex.Vertical,
-            Duplexing.TwoSidedShortEdge => System.Drawing.Printing.Duplex.Horizontal,
-            _ => System.Drawing.Printing.Duplex.Simplex
-        };
-
-        // Set paper size if specified
-        if (settings.PaperSize != PageMediaSizeName.Unknown)
+            // User configured everything (printer, copies, duplex, paper size, ...) via the
+            // native Windows print dialog — use it as-is instead of re-deriving settings.
+            printDocument.PrinterSettings = settings.NativePrinterSettings;
+        }
+        else
         {
-            var paperSize = PaperSizeFromMediaSizeName(settings.PaperSize);
-            if (paperSize != null)
+            // Fallback: derive basic settings from the model (no native dialog was used yet).
+            printDocument.PrinterSettings.PrinterName = settings.PrinterName ?? string.Empty;
+            printDocument.PrinterSettings.Copies = (short)settings.Copies;
+            printDocument.PrinterSettings.DefaultPageSettings.Color = settings.ColorMode == OutputColor.Color;
+
+            printDocument.PrinterSettings.Duplex = settings.Duplex switch
             {
-                // Iterate through available paper sizes
-                for (int i = 0; i < printDocument.PrinterSettings.PaperSizes.Count; i++)
+                Duplexing.OneSided => System.Drawing.Printing.Duplex.Simplex,
+                Duplexing.TwoSidedLongEdge => System.Drawing.Printing.Duplex.Vertical,
+                Duplexing.TwoSidedShortEdge => System.Drawing.Printing.Duplex.Horizontal,
+                _ => System.Drawing.Printing.Duplex.Simplex
+            };
+
+            if (settings.PaperSize != PageMediaSizeName.Unknown)
+            {
+                var paperSize = PaperSizeFromMediaSizeName(settings.PaperSize);
+                if (paperSize != null)
                 {
-                    var ps = printDocument.PrinterSettings.PaperSizes[i];
-                    if (ps.Kind == paperSize.Kind && Math.Abs(ps.Width - paperSize.Width) < 5)
+                    for (int i = 0; i < printDocument.PrinterSettings.PaperSizes.Count; i++)
                     {
-                        printDocument.DefaultPageSettings.PaperSize = ps;
-                        break;
+                        var ps = printDocument.PrinterSettings.PaperSizes[i];
+                        if (ps.Kind == paperSize.Kind && Math.Abs(ps.Width - paperSize.Width) < 5)
+                        {
+                            printDocument.DefaultPageSettings.PaperSize = ps;
+                            break;
+                        }
                     }
                 }
             }
         }
 
-        // Page scaling logic
-        int currentPage = 0;
-        printDocument.PrintPage += (_, e) =>
-        {
-            if (currentPage >= document.PageCount)
-            {
-                e.HasMorePages = false;
-                return;
-            }
-
-            var page = document.Render(
-                currentPage,
-                e.PageBounds.Width,
-                e.PageBounds.Height,
-                PdfRenderFlags.CorrectFromDpi | PdfRenderFlags.Annotations);
-
-            // Fit to page: scale image to fit printable area
-            if (settings.Scaling == PageScaling.FitToPage)
-            {
-                var marginBounds = e.MarginBounds;
-                float scaleX = (float)marginBounds.Width / page.Width;
-                float scaleY = (float)marginBounds.Height / page.Height;
-                float scale = Math.Min(scaleX, scaleY);
-
-                int destWidth = (int)(page.Width * scale);
-                int destHeight = (int)(page.Height * scale);
-                int destX = marginBounds.X + (marginBounds.Width - destWidth) / 2;
-                int destY = marginBounds.Y + (marginBounds.Height - destHeight) / 2;
-
-                e.Graphics!.DrawImage(page, destX, destY, destWidth, destHeight);
-            }
-            else if (settings.Scaling == PageScaling.ShrinkOversized)
-            {
-                var marginBounds = e.MarginBounds;
-                float scale = Math.Min(1f, Math.Min(
-                    (float)marginBounds.Width / page.Width,
-                    (float)marginBounds.Height / page.Height));
-
-                int destWidth = (int)(page.Width * scale);
-                int destHeight = (int)(page.Height * scale);
-                int destX = marginBounds.X + (marginBounds.Width - destWidth) / 2;
-                int destY = marginBounds.Y + (marginBounds.Height - destHeight) / 2;
-
-                e.Graphics!.DrawImage(page, destX, destY, destWidth, destHeight);
-            }
-            else
-            {
-                // Actual size — draw at 1:1 from top-left
-                e.Graphics!.DrawImage(page, e.MarginBounds.X, e.MarginBounds.Y, page.Width, page.Height);
-            }
-
-            page.Dispose();
-            currentPage++;
-            e.HasMorePages = currentPage < document.PageCount;
-        };
-
+        // NOTE: document.CreatePrintDocument() already wires up its own PrintPage handler
+        // internally that renders each PDF page using PdfiumViewer's native rendering.
+        // We intentionally do NOT attach an additional PrintPage handler here — doing so
+        // previously caused every page to be drawn twice (once by PdfiumViewer's internal
+        // handler, once by our custom scaling code), which looked like a doubled/overlaid
+        // printout. Custom scaling (Fit to page / Shrink oversized / Actual size) is left
+        // to PdfiumViewer's/Windows' defaults for now.
         printDocument.Print();
         return true;
     }
