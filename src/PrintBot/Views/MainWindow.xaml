@@ -67,10 +67,6 @@
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
@@ -81,23 +77,24 @@
                           SelectedItem="{Binding SelectedPrinter}"
                           DisplayMemberPath="Name" />
 
-                <Label Grid.Column="2" Content="Skalierung:" Margin="12,0,4,0"
-                       VerticalAlignment="Center" />
-                <ComboBox Grid.Column="3" Width="110"
-                          SelectedItem="{Binding Settings.Scaling}"
-                          ItemsSource="{x:Static models:PrintSettingsDefaults.DefaultScalingOptions}" />
+                <Button Grid.Column="2" Content="⚙ Druckereinstellungen" Width="160"
+                        Command="{Binding OpenPrintSettingsCommand}"
+                        Margin="12,0,0,0" />
 
-                <Label Grid.Column="4" Content="Kopien:" Margin="12,0,4,0"
-                       VerticalAlignment="Center" />
-                <TextBox Grid.Column="5" Width="40" Text="{Binding Settings.Copies}" />
+                <StackPanel Grid.Column="3" Orientation="Horizontal" Margin="16,0,0,0">
+                    <Label Content="Skalierung:" VerticalAlignment="Center" Margin="0,0,4,0" />
+                    <ComboBox Width="130" VerticalAlignment="Center"
+                              SelectedValue="{Binding Settings.Scaling}">
+                        <ComboBox.ItemsSource>
+                            <x:Array Type="{x:Type models:PageScaling}">
+                                <models:PageScaling>FitToPage</models:PageScaling>
+                                <models:PageScaling>ActualSize</models:PageScaling>
+                            </x:Array>
+                        </ComboBox.ItemsSource>
+                    </ComboBox>
+                </StackPanel>
 
-                <Label Grid.Column="6" Content="Duplex:" Margin="12,0,4,0"
-                       VerticalAlignment="Center" />
-                <CheckBox Grid.Column="7" Content="Beidseitig"
-                          IsChecked="{Binding Settings.Duplex, Converter={StaticResource DuplexToBoolConverter}}"
-                          VerticalAlignment="Center" Margin="0,0,12,0" />
-
-                <StackPanel Grid.Column="9" Orientation="Horizontal">
+                <StackPanel Grid.Column="5" Orientation="Horizontal">
                     <Button Content="▶ Alles drucken" Width="130"
                             Command="{Binding PrintAllCommand}"
                             IsEnabled="{Binding IsPrinting, Converter={StaticResource BooleanNegationConverter}}"
