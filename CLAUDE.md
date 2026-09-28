@@ -1,0 +1,55 @@
+# Print-Bot
+
+Windows desktop (WPF, .NET 8) bulk-printing app that overcomes Windows Explorer's 10-file print limit. Manages a print queue with reordering, per-file status tracking, printer selection, and print settings, targeting PDF/Word/Excel documents (originally for accounting workflows from a NAS share to an HP OfficeJet MFP).
+
+Full details live in `SPECIFICATION.md` at the repo root — consult it for anything not covered here.
+
+## Tech Stack
+- **.NET 8 (LTS)**, **WPF** for UI (MVVM pattern), targeting `net8.0-windows10.0.17763.0` / `win-x64`
+- **CommunityToolkit.Mvvm** for source-generated commands/observable properties
+- **PdfiumViewer** for PDF rendering/printing
+- **Microsoft.Office.Interop** (Word + Excel) for Office document printing
+- **System.Printing** for printer enumeration and job submission
+- **Serilog** (file sink) for logging to `%LOCALAPPDATA%\PrintBot\printbot.log`
+- **Microsoft.Extensions.DependencyInjection** for DI (wired up manually in `MainWindow.xaml.cs`, not `App.xaml.cs`)
+- Packaged as a self-contained single-file EXE for win-x64
+
+## Project Structure
+```
+src/PrintBot/
+  App.xaml(.cs)
+  Models/          PrinterInfo.cs, PrintJob.cs, PrintSettings.cs
+  Services/        IPrintService.cs, PdfPrintService.cs, OfficePrintService.cs,
+                    PrinterDiscoveryService.cs, PrintOrchestrator.cs
+  ViewModels/      MainViewModel.cs
+  Views/           MainWindow.xaml(.cs)
+  Converters/      Converters.cs
+  Assets/          README.md (icon generation instructions; no .ico present yet)
+```
+
+## Architecture & Conventions
+- Use **MVVM** with CommunityToolkit.Mvvm-style source-generated commands/observable properties.
+- Queue is an `ObservableCollection<PrintJob>` on `MainViewModel` for automatic UI updates.
+- Printing is **sequential, one file at a time**, run via `Task.Run`/async with `IProgress<T>` to keep the UI responsive; small delay between jobs to avoid spooler overload.
+- Route print requests through `IPrintService` implementations selected by file extension (`PdfPrintService` for `.pdf`; `OfficePrintService` for `.docx/.doc/.xlsx/.xls`).
+- **Always release Office Interop COM objects in `finally` blocks** to prevent zombie WINWORD/EXCEL processes.
+- Each `PrintJob` tracks a status: Queued, Printing, Printed, Failed, Skipped. Status is session-only (not persisted).
+- Errors (missing file, offline printer, COM exceptions, paper jam) should mark the job as Failed/Skipped and continue the queue rather than crashing.
+- Respect print settings (page scaling, orientation, color mode, duplex, copies, paper size) applied uniformly to all queued jobs, sourced from the selected printer's capabilities.
+
+## MVP Scope Notes
+Prioritize: PDF printing with fit-to-page, add files/folder, queue reorder (move up/down), remove from queue, Print All with cancel, per-item status, printer selection, print settings panel. Drag-drop reorder, subdirectory recursion toggle, persistent settings, progress bar/summary dialog, and dark mode are Phase 2. See `SPECIFICATION.md` §6 for the full MVP checklist.
+
+## Build
+```powershell
+dotnet restore
+dotnet build --configuration Release
+```
+Publish uses `dotnet publish` with `PublishSingleFile=true`, `--self-contained true`, `--runtime win-x64` (see `SPECIFICATION.md` §5 for the full command).
+
+## Known Windows/.NET-specific gaps
+The codebase was originally scaffolded without access to a .NET SDK or WPF runtime, so a few things needed finishing on an actual Windows dev machine. As of the current source tree:
+
+1. **NuGet restore** — Run `dotnet restore` from `src/PrintBot/` (or the solution root) before first build; PdfiumViewer/Office Interop/Serilog packages need to be pulled down.
+2. **Multi-select command binding** — `DataGrid.SelectedItems` is *not* a `DependencyProperty`, so binding `CommandParameter="{Binding ElementName=JobsGrid, Path=SelectedItems}"` in XAML never refreshes on selection change. This is fixed in `MainWindow.xaml.cs` via `Click` event handlers (`MoveUpButton_Click`, `MoveDownButton_Click`, `RemoveSelectedButton_Click`, `PrintSelectedButton_Click`) that read `JobsGrid.SelectedItems` directly and invoke the matching `RelayCommand`. **Keep this pattern for any future multi-select DataGrid actions** instead of trying to bind `SelectedItems` in XAML.
+3. **App icon** — `Assets\printbot.ico` is not present (a valid binary `.ico` can't be authored through a remote/text-only editing environment). `PrintBot.csproj` currently has `<ApplicationIcon>` commented out; see `src/PrintBot/Assets/README.md` for a PowerShell snippet to generate a real icon locally, then re-enable the property. **Do not re-enable `<ApplicationIcon>` until a real, valid `.ico` file exists at that path** — a garbled placeholder will break `dotnet build`.

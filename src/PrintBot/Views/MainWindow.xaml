@@ -11,6 +11,7 @@
         <converters:BooleanNegationConverter x:Key="BooleanNegationConverter" />
         <converters:BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
         <converters:StatusToEmojiConverter x:Key="StatusToEmojiConverter" />
+        <converters:FileTypeToIconConverter x:Key="FileTypeToIconConverter" />
         <converters:DuplexToBoolConverter x:Key="DuplexToBoolConverter" />
     </Window.Resources>
 
@@ -107,11 +108,19 @@
                   AlternatingRowBackground="#F5F5F5">
 
             <DataGrid.Columns>
-                <DataGridTextColumn Header="#" Width="40" Binding="{Binding Id}"
-                                    IsReadOnly="True" />
-                <DataGridTextColumn Header="Dateiname" Width="250" Binding="{Binding FileName}" />
-                <DataGridTextColumn Header="Pfad" Width="*" Binding="{Binding FullPath}" />
-                <DataGridTextColumn Header="Typ" Width="50" Binding="{Binding FileType}" />
+                <!-- Icon + filename in one cell; full path available as a tooltip on hover
+                     instead of a dedicated column, since it's mostly redundant with the name. -->
+                <DataGridTemplateColumn Header="Dateiname" Width="*">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <StackPanel Orientation="Horizontal" ToolTip="{Binding FullPath}">
+                                <Image Source="{Binding FileType, Converter={StaticResource FileTypeToIconConverter}}"
+                                       Width="20" Height="20" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                <TextBlock Text="{Binding FileName}" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
 
                 <!-- Status column with emoji icons -->
                 <DataGridTemplateColumn Header="Status" Width="90">

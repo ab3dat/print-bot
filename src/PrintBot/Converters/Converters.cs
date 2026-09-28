@@ -2,6 +2,7 @@ using System;
 using System.Globalization;
 using System.Windows;
 using System.Windows.Data;
+using PrintBot.Helpers;
 using PrintBot.Models;
 
 namespace PrintBot.Converters;
@@ -42,6 +43,15 @@ public class StatusToEmojiConverter : IValueConverter
         }
         return "❓";
     }
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        => throw new NotImplementedException();
+}
+
+public class FileTypeToIconConverter : IValueConverter
+{
+    public object? Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        => FileIconHelper.GetIconForExtension(value as string);
 
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
         => throw new NotImplementedException();
