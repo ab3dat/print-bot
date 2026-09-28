@@ -45,6 +45,16 @@ public class PrintOrchestrator
     }
 
     /// <summary>
+    /// Cheaply determine a file's page count for display purposes, or null if
+    /// unsupported/unavailable for this file type.
+    /// </summary>
+    public int? TryGetPageCount(string filePath)
+    {
+        var ext = Path.GetExtension(filePath).TrimStart('.').ToLowerInvariant();
+        return _services.TryGetValue(ext, out var service) ? service.TryGetPageCount(filePath) : null;
+    }
+
+    /// <summary>
     /// Print all queued jobs sequentially, reporting progress.
     /// Returns counts of printed and failed jobs.
     /// </summary>

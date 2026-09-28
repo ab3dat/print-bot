@@ -12,7 +12,6 @@
         <converters:BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
         <converters:StatusToEmojiConverter x:Key="StatusToEmojiConverter" />
         <converters:FileTypeToIconConverter x:Key="FileTypeToIconConverter" />
-        <converters:DuplexToBoolConverter x:Key="DuplexToBoolConverter" />
     </Window.Resources>
 
     <Grid Margin="12">
@@ -84,6 +83,10 @@
                         Margin="12,0,0,0" />
 
                 <StackPanel Grid.Column="5" Orientation="Horizontal">
+                    <CheckBox Content="🔃 Rückwärts" VerticalAlignment="Center" Margin="0,0,12,0"
+                              IsChecked="{Binding ReverseOrder}"
+                              IsEnabled="{Binding IsPrinting, Converter={StaticResource BooleanNegationConverter}}"
+                              ToolTip="Startet 'Alles drucken' mit dem letzten Dokument der Liste" />
                     <Button Content="▶ Alles drucken" Width="130"
                             Command="{Binding PrintAllCommand}"
                             IsEnabled="{Binding IsPrinting, Converter={StaticResource BooleanNegationConverter}}"
@@ -121,6 +124,18 @@
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
+
+                <!-- PDF page count (fast, read from the file header); Word/Excel leave this
+                     blank since getting a real count would require opening them via COM. -->
+                <DataGridTextColumn Header="Seiten" Width="55"
+                                    Binding="{Binding EstimatedPages, TargetNullValue='–'}"
+                                    IsReadOnly="True">
+                    <DataGridTextColumn.ElementStyle>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="HorizontalAlignment" Value="Center" />
+                        </Style>
+                    </DataGridTextColumn.ElementStyle>
+                </DataGridTextColumn>
 
                 <!-- Status column with emoji icons -->
                 <DataGridTemplateColumn Header="Status" Width="90">

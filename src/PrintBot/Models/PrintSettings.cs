@@ -15,7 +15,9 @@ public class PrintSettings
     public string? PrinterName { get; set; }
     public PageOrientation Orientation { get; set; } = PageOrientation.Unknown; // "Auto"
     public OutputColor ColorMode { get; set; } = OutputColor.Color;
-    public Duplexing Duplex { get; set; } = Duplexing.OneSided;
+    // Null = don't touch the printer's own configured default duplex setting.
+    // Only set once the user explicitly picks one via the native print dialog.
+    public Duplexing? Duplex { get; set; }
     public int Copies { get; set; } = 1;
     public PageMediaSizeName PaperSize { get; set; } = PageMediaSizeName.ISOA4;
     public int DelayBetweenJobsMs { get; set; } = 500;

@@ -27,6 +27,11 @@ public class OfficePrintService : IPrintService
         return await Task.Run(() => PrintOfficeDoc(job, settings), ct);
     }
 
+    // Getting a real page count would require opening the file via COM Interop (the same
+    // cost as printing it), which is too slow to do just for browsing the queue — so this
+    // is intentionally not supported for Word/Excel.
+    public int? TryGetPageCount(string filePath) => null;
+
     private bool PrintOfficeDoc(PrintJob job, PrintSettings settings)
     {
         var ext = Path.GetExtension(job.FullPath).ToLowerInvariant();

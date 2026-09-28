@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using PrintBot.Models;
 using PdfiumViewer;
+using Serilog;
 
 namespace PrintBot.Services;
 
@@ -19,6 +20,19 @@ public class PdfPrintService : IPrintService
     public async Task<bool> PrintAsync(PrintJob job, PrintSettings settings, CancellationToken ct)
     {
         return await Task.Run(() => PrintPdf(job, settings), ct);
+    }
+
+    public int? TryGetPageCount(string filePath)
+    {
+        try
+        {
+            using var document = PdfDocument.Load(filePath);
+            return document.PageCount;
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     private bool PrintPdf(PrintJob job, PrintSettings settings)
@@ -44,13 +58,29 @@ public class PdfPrintService : IPrintService
             printDocument.PrinterSettings.Copies = (short)settings.Copies;
             printDocument.PrinterSettings.DefaultPageSettings.Color = settings.ColorMode == OutputColor.Color;
 
-            printDocument.PrinterSettings.Duplex = settings.Duplex switch
+            if (settings.Duplex.HasValue)
             {
-                Duplexing.OneSided => System.Drawing.Printing.Duplex.Simplex,
-                Duplexing.TwoSidedLongEdge => System.Drawing.Printing.Duplex.Vertical,
-                Duplexing.TwoSidedShortEdge => System.Drawing.Printing.Duplex.Horizontal,
-                _ => System.Drawing.Printing.Duplex.Simplex
-            };
+                printDocument.PrinterSettings.Duplex = settings.Duplex.Value switch
+                {
+                    Duplexing.OneSided => System.Drawing.Printing.Duplex.Simplex,
+                    Duplexing.TwoSidedLongEdge => System.Drawing.Printing.Duplex.Vertical,
+                    Duplexing.TwoSidedShortEdge => System.Drawing.Printing.Duplex.Horizontal,
+                    _ => System.Drawing.Printing.Duplex.Simplex
+                };
+            }
+            else
+            {
+                // No explicit choice: re-assert whatever the driver already reports as its
+                // current default. Merely reading .Duplex without writing it back doesn't
+                // reliably mark the duplex field as "specified" in the DEVMODE that gets sent
+                // to the spooler, and some drivers then silently fall back to Simplex for any
+                // unspecified field — so we round-trip the value to force that flag to be set.
+                printDocument.PrinterSettings.Duplex = printDocument.PrinterSettings.Duplex;
+            }
+
+            Log.Information(
+                "PDF print job {File}: printer={Printer}, resolved duplex={Duplex}",
+                job.FullPath, printDocument.PrinterSettings.PrinterName, printDocument.PrinterSettings.Duplex);
 
             if (settings.PaperSize != PageMediaSizeName.Unknown)
             {

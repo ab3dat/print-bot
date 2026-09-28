@@ -56,6 +56,9 @@ public partial class MainViewModel : ObservableObject
     private bool _isPrinting;
 
     [ObservableProperty]
+    private bool _reverseOrder;
+
+    [ObservableProperty]
     private string _statusText = "Bereit";
 
     [ObservableProperty]
@@ -124,7 +127,8 @@ public partial class MainViewModel : ObservableObject
                 {
                     FileName = Path.GetFileName(path),
                     FullPath = path,
-                    FileType = Path.GetExtension(path).TrimStart('.').ToLowerInvariant()
+                    FileType = Path.GetExtension(path).TrimStart('.').ToLowerInvariant(),
+                    EstimatedPages = _orchestrator.TryGetPageCount(path)
                 });
                 added++;
             }
@@ -157,7 +161,8 @@ public partial class MainViewModel : ObservableObject
             {
                 FileName = Path.GetFileName(path),
                 FullPath = path,
-                FileType = Path.GetExtension(path).TrimStart('.').ToLowerInvariant()
+                FileType = Path.GetExtension(path).TrimStart('.').ToLowerInvariant(),
+                EstimatedPages = _orchestrator.TryGetPageCount(path)
             });
             added++;
         }
@@ -221,6 +226,7 @@ public partial class MainViewModel : ObservableObject
     private async Task PrintAllAsync()
     {
         var queued = PrintJobs.Where(j => j.Status == PrintJobStatus.Queued).ToList();
+        if (ReverseOrder) queued.Reverse();
         if (queued.Count == 0)
         {
             MessageBox.Show("Keine Dateien in der Queue.", "Hinweis",

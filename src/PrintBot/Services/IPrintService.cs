@@ -20,4 +20,10 @@ public interface IPrintService
     /// Returns true on success, throws on unrecoverable error.
     /// </summary>
     Task<bool> PrintAsync(PrintJob job, PrintSettings settings, CancellationToken ct);
+
+    /// <summary>
+    /// Cheaply determine the page count for display purposes, or null if unavailable
+    /// or too costly to compute for this format.
+    /// </summary>
+    int? TryGetPageCount(string filePath);
 }
